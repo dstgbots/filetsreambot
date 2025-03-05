@@ -52,12 +52,16 @@ async def stream_handler(request: web.Request):
         raise web.HTTPForbidden(text=e.message)
     except FIleNotFound as e:
         raise web.HTTPNotFound(text=e.message)
-    except (AttributeError, BadStatusLine, ConnectionResetError):
-        pass
+    except (AttributeError, BadStatusLine, ConnectionResetError) as e:
+        logging.error(f"Connection error: {str(e)}")
+        return web.Response(
+            status=500,
+            text="Connection error occurred. Please try again later."
+        )
     except Exception as e:
         logging.critical(e.with_traceback(None))
         raise web.HTTPInternalServerError(text=str(e))
-
+        
 @routes.get(r"/{path:\S+}", allow_head=True)
 async def stream_handler(request: web.Request):
     try:
@@ -74,11 +78,16 @@ async def stream_handler(request: web.Request):
         raise web.HTTPForbidden(text=e.message)
     except FIleNotFound as e:
         raise web.HTTPNotFound(text=e.message)
-    except (AttributeError, BadStatusLine, ConnectionResetError):
-        pass
+    except (AttributeError, BadStatusLine, ConnectionResetError) as e:
+        logging.error(f"Connection error: {str(e)}")
+        return web.Response(
+            status=500,
+            text="Connection error occurred. Please try again later."
+        )
     except Exception as e:
         logging.critical(e.with_traceback(None))
         raise web.HTTPInternalServerError(text=str(e))
+
 
 class_cache = {}
 
@@ -98,9 +107,13 @@ async def media_streamer(request: web.Request, id: int, secure_hash: str):
         logging.debug(f"Creating new ByteStreamer object for client {index}")
         tg_connect = ByteStreamer(faster_client)
         class_cache[faster_client] = tg_connect
-    logging.debug("before calling get_file_properties")
-    file_id = await tg_connect.get_file_properties(id)
-    logging.debug("after calling get_file_properties")
+    logging.debug(f"Retrieving file properties for ID: {id}")
+    try:
+        file_id = await tg_connect.get_file_properties(id)
+        logging.debug(f"Successfully retrieved file properties for ID: {id}")
+    except Exception as e:
+        logging.error(f"Error retrieving file properties: {str(e)}")
+        raise
     
     if file_id.unique_id[:6] != secure_hash:
         logging.debug(f"Invalid hash for message with ID {id}")
